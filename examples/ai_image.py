@@ -27,6 +27,7 @@ MQTT_BROKER = "broker.mqttdashboard.com"
 MQTT_PORT = 1883
 MQTT_TOPIC = "palissy/epaper/prompt"
 MQTT_TOPIC_STATUS = "palissy/epaper/status"
+MQTT_TOPIC_SHUTDOWN = "palissy/epaper/shutdown"
 
 client = InferenceClient()
 epd = epd3in6e.EPD()
@@ -119,10 +120,19 @@ def run_mqtt():
     def on_connect(client, userdata, flags, rc, properties):
         print(f"Connecté au broker MQTT")
         client.subscribe(MQTT_TOPIC)
+        client.subscribe(MQTT_TOPIC_SHUTDOWN)
         client.publish(MQTT_TOPIC_STATUS, "ready")
         print(f"En attente de prompts sur {MQTT_TOPIC}...")
 
     def on_message(client, userdata, msg):
+        if msg.topic == MQTT_TOPIC_SHUTDOWN:
+            print("\n--- Extinction demandée via MQTT ---")
+            client.publish(MQTT_TOPIC_STATUS, "shutting down")
+            client.disconnect()
+            epd.sleep()
+            os.system("sudo shutdown -h now")
+            return
+
         prompt = msg.payload.decode("utf-8").strip()
         if not prompt:
             return
