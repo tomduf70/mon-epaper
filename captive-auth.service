@@ -1,0 +1,15 @@
+[Unit]
+Description=Authentification portail captif FortiGate
+After=network-online.target
+Wants=network-online.target
+Before=epaper-ai.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=/home/pi/projects/mon-epaper/.env
+ExecStart=/home/pi/.local/bin/uv run /home/pi/projects/mon-epaper/examples/captive_auth.py
+WorkingDirectory=/home/pi/projects/mon-epaper
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
