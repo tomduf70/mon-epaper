@@ -7,7 +7,7 @@ Before=epaper-ai.service
 [Service]
 Type=oneshot
 EnvironmentFile=/home/pi/projects/mon-epaper/.env
-ExecStart=/home/pi/.local/bin/uv run /home/pi/projects/mon-epaper/examples/captive_auth.py
+ExecStart=/home/pi/.local/bin/uv run /home/pi/projects/mon-epaper/scripts/captive_auth.py
 WorkingDirectory=/home/pi/projects/mon-epaper
 RemainAfterExit=yes
 

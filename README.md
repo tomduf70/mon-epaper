@@ -22,17 +22,20 @@ uv sync
 
 ## Configuration
 
-Créer un fichier `.env` à la racine avec votre token HuggingFace :
+Créer un fichier `.env` à la racine (chmod 600) :
 
 ```
 HF_TOKEN=hf_votre_token_ici
+CAPTIVE_USERNAME=identifiant_portail
+CAPTIVE_PASSWORD=mot_de_passe_portail
 ```
 
-Obtenir un token gratuit sur [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens).
+- Token HuggingFace gratuit sur [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens)
+- Les credentials portail captif ne sont nécessaires qu'en réseau éducatif (FortiGate)
 
-## Scripts
+## Exemples (démos driver)
 
-Tous les scripts se lancent depuis `examples/` :
+Scripts de démonstration du driver e-paper, à lancer depuis `examples/` :
 
 ```bash
 cd examples
@@ -44,15 +47,15 @@ uv run <script>.py
 | `hello_world.py` | Hello World + démo des 6 couleurs |
 | `photo.py` | Affiche une photo (URL ou fichier local) avec dithering auto |
 | `clean.py` | Nettoyage / mise à blanc de l'écran |
-| `ai_image.py` | Générateur d'images IA (HuggingFace SDXL) |
 
 ## Générateur d'images IA
 
-Le script principal du projet. Génère une image à partir d'un prompt texte via l'API HuggingFace et l'affiche sur l'écran e-paper.
+Script principal : `scripts/ai_image.py`. Génère une image à partir d'un prompt texte via l'API HuggingFace (SDXL) et l'affiche sur l'écran e-paper.
 
 ### Mode terminal
 
 ```bash
+cd scripts
 uv run ai_image.py
 # → tape ton prompt, l'image apparaît sur l'écran
 # → enchaîne les prompts, 'q' pour quitter
@@ -86,13 +89,24 @@ Raccourci iOS (dictée vocale)
 Le prompt est affiché en bas de l'image sur un bandeau noir (2 lignes max).
 Les images sont sauvegardées dans `generated/` avec horodatage.
 
-### Démarrage automatique (systemd)
+## Portail captif (réseau éducatif)
+
+Script : `scripts/captive_auth.py`. Authentification automatique au portail captif FortiGate.
+
+- Détecte si un portail est présent, sinon passe silencieusement
+- Extrait le magic token et s'authentifie avec les credentials du `.env`
+
+## Démarrage automatique (systemd)
+
+Deux services chaînés :
+
+1. `captive-auth.service` — auth portail captif (oneshot, avant e-paper)
+2. `epaper-ai.service` — lance le générateur en mode MQTT
 
 ```bash
-sudo cp epaper-ai.service /etc/systemd/system/
+sudo cp captive-auth.service epaper-ai.service /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable epaper-ai
-sudo systemctl start epaper-ai
+sudo systemctl enable captive-auth epaper-ai
 ```
 
 ## Exemples d'images générées
@@ -105,8 +119,10 @@ sudo systemctl start epaper-ai
 ## Structure du projet
 
 ```
-├── examples/
+├── scripts/
 │   ├── ai_image.py        ← générateur IA (terminal + MQTT)
+│   └── captive_auth.py    ← auth portail captif FortiGate
+├── examples/
 │   ├── hello_world.py     ← démo couleurs
 │   ├── photo.py           ← affichage photo
 │   └── clean.py           ← nettoyage écran
@@ -115,9 +131,10 @@ sudo systemctl start epaper-ai
 │   └── epdconfig.py       ← couche SPI/GPIO
 ├── pic/                   ← polices + images de test
 ├── generated/             ← images IA générées
-├── epaper-ai.service      ← service systemd
+├── epaper-ai.service      ← service systemd (générateur)
+├── captive-auth.service   ← service systemd (portail captif)
 ├── pyproject.toml         ← dépendances (uv)
-└── .env                   ← token HuggingFace (non committé)
+└── .env                   ← secrets (non committé, chmod 600)
 ```
 
 ## Dépendances Python

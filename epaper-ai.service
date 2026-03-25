@@ -6,9 +6,9 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/home/pi/projects/mon-epaper/examples
+WorkingDirectory=/home/pi/projects/mon-epaper/scripts
 EnvironmentFile=/home/pi/projects/mon-epaper/.env
-ExecStart=/home/pi/.local/bin/uv run /home/pi/projects/mon-epaper/examples/ai_image.py --mqtt
+ExecStart=/home/pi/.local/bin/uv run /home/pi/projects/mon-epaper/scripts/ai_image.py --mqtt
 Restart=on-failure
 RestartSec=10
 
