@@ -5,6 +5,9 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "gpiozero>=2.0.1",
     "huggingface-hub>=1.8.0",
     "pillow>=12.1.1",
+    "rpi-lgpio>=0.6",
+    "spidev>=3.8",
 ]
