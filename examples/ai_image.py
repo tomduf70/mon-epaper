@@ -23,39 +23,10 @@ from PIL import Image, ImageDraw, ImageFont
 
 logging.basicConfig(level=logging.DEBUG)
 
+MQTT_BROKER = "broker.mqttdashboard.com"
 MQTT_PORT = 1883
-MQTT_TOPIC = "epaper/prompt"
-MQTT_TOPIC_STATUS = "epaper/status"
-
-# Broker MQTT selon le réseau WiFi
-BROKERS = {
-    "Freebox": "ds218-tomduf",
-    "default": "nas-si-b01",
-}
-
-
-def get_mqtt_broker():
-    """Détecte le SSID WiFi via nmcli et renvoie le broker correspondant."""
-    import subprocess
-    try:
-        ssid = subprocess.check_output(
-            ["nmcli", "-t", "-f", "active,ssid", "dev", "wifi"],
-            text=True,
-        )
-        for line in ssid.strip().splitlines():
-            if line.startswith("oui:") or line.startswith("yes:"):
-                current_ssid = line.split(":", 1)[1]
-                for prefix, broker in BROKERS.items():
-                    if prefix == "default":
-                        continue
-                    if current_ssid.startswith(prefix):
-                        print(f"WiFi détecté : {current_ssid} → broker {broker}")
-                        return broker
-    except Exception as e:
-        print(f"Impossible de détecter le WiFi : {e}")
-    broker = BROKERS["default"]
-    print(f"Broker par défaut : {broker}")
-    return broker
+MQTT_TOPIC = "tomduf/epaper/prompt"
+MQTT_TOPIC_STATUS = "tomduf/epaper/status"
 
 client = InferenceClient()
 epd = epd3in6e.EPD()
@@ -166,8 +137,7 @@ def run_mqtt():
 
     mqtt_client.on_connect = on_connect
     mqtt_client.on_message = on_message
-    broker = get_mqtt_broker()
-    mqtt_client.connect(broker, MQTT_PORT)
+    mqtt_client.connect(MQTT_BROKER, MQTT_PORT)
 
     try:
         mqtt_client.loop_forever()
