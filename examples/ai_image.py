@@ -43,13 +43,37 @@ def generate_and_display(prompt):
     top = (img.size[1] - target_h) // 2
     img = img.crop((left, top, left + target_w, top + target_h))
 
-    # Ajout du prompt en bas de l'image
+    # Ajout du prompt en bas de l'image (2 lignes max)
     draw = ImageDraw.Draw(img)
     margin = 6
-    text_y = target_h - 24
-    # Fond semi-transparent pour lisibilité
-    draw.rectangle([0, text_y - margin, target_w, target_h], fill=epd.BLACK)
-    draw.text((margin, text_y - margin + 2), prompt[:60], font=font, fill=epd.WHITE)
+    max_width = target_w - 2 * margin
+
+    # Découpe le texte en lignes qui tiennent dans la largeur
+    words = prompt.split()
+    lines = []
+    current_line = ""
+    for word in words:
+        test = f"{current_line} {word}".strip()
+        if draw.textlength(test, font=font) <= max_width:
+            current_line = test
+        else:
+            if current_line:
+                lines.append(current_line)
+            current_line = word
+    if current_line:
+        lines.append(current_line)
+
+    # On garde max 2 lignes
+    lines = lines[:2]
+    if len(lines) == 2 and draw.textlength(lines[1], font=font) > max_width:
+        lines[1] = lines[1][:40] + "..."
+
+    line_height = 20
+    block_height = len(lines) * line_height + 2 * margin
+    text_y = target_h - block_height
+    draw.rectangle([0, text_y, target_w, target_h], fill=epd.BLACK)
+    for i, line in enumerate(lines):
+        draw.text((margin, text_y + margin + i * line_height), line, font=font, fill=epd.WHITE)
 
     # Sauvegarde
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
