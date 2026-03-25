@@ -25,8 +25,8 @@ logging.basicConfig(level=logging.DEBUG)
 
 MQTT_BROKER = "broker.mqttdashboard.com"
 MQTT_PORT = 1883
-MQTT_TOPIC = "tomduf/epaper/prompt"
-MQTT_TOPIC_STATUS = "tomduf/epaper/status"
+MQTT_TOPIC = "palissy/epaper/prompt"
+MQTT_TOPIC_STATUS = "palissy/epaper/status"
 
 client = InferenceClient()
 epd = epd3in6e.EPD()
@@ -135,16 +135,22 @@ def run_mqtt():
             print(f"Erreur : {e}")
             client.publish(MQTT_TOPIC_STATUS, f"error: {e}")
 
+    import signal
+
+    def handle_exit(sig, frame):
+        print("\nArrêt du script...")
+        mqtt_client.publish(MQTT_TOPIC_STATUS, "offline")
+        mqtt_client.disconnect()
+        mqtt_client.loop_stop()
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, handle_exit)
+    signal.signal(signal.SIGTERM, handle_exit)
+
     mqtt_client.on_connect = on_connect
     mqtt_client.on_message = on_message
     mqtt_client.connect(MQTT_BROKER, MQTT_PORT)
-
-    try:
-        mqtt_client.loop_forever()
-    except KeyboardInterrupt:
-        print("\nInterruption.")
-        mqtt_client.publish(MQTT_TOPIC_STATUS, "offline")
-        mqtt_client.disconnect()
+    mqtt_client.loop_forever()
 
 
 if __name__ == "__main__":
