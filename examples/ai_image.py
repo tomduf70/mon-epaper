@@ -21,7 +21,7 @@ from huggingface_hub import InferenceClient
 from waveshare_epd import epd3in6e
 from PIL import Image, ImageDraw, ImageFont
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 MQTT_BROKER = "broker.mqttdashboard.com"
 MQTT_PORT = 1883
