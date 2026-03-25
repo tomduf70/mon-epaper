@@ -36,7 +36,7 @@ Tous les scripts se lancent depuis `examples/` :
 
 ```bash
 cd examples
-uv run python3 <script>.py
+uv run <script>.py
 ```
 
 | Script | Description |
@@ -53,7 +53,7 @@ Le script principal du projet. Génère une image à partir d'un prompt texte vi
 ### Mode terminal
 
 ```bash
-uv run python3 ai_image.py
+uv run ai_image.py
 # → tape ton prompt, l'image apparaît sur l'écran
 # → enchaîne les prompts, 'q' pour quitter
 ```
@@ -61,7 +61,7 @@ uv run python3 ai_image.py
 ### Mode MQTT
 
 ```bash
-uv run python3 ai_image.py --mqtt
+uv run ai_image.py --mqtt
 ```
 
 Écoute le broker MQTT `broker.mqttdashboard.com` sur les topics :
