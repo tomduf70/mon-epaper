@@ -1,6 +1,11 @@
 #!/usr/bin/python3
-"""Génère une image IA depuis un prompt et l'affiche sur l'écran e-Paper 3.6"."""
-import sys, os
+"""Génère une image IA depuis un prompt et l'affiche sur l'écran e-Paper 3.6".
+
+Deux modes :
+  python3 ai_image.py          → mode terminal interactif
+  python3 ai_image.py --mqtt   → écoute le topic MQTT epaper/prompt
+"""
+import sys, os, argparse
 from datetime import datetime
 
 libdir = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), 'lib')
@@ -17,6 +22,11 @@ from waveshare_epd import epd3in6e
 from PIL import Image, ImageDraw, ImageFont
 
 logging.basicConfig(level=logging.DEBUG)
+
+MQTT_BROKER = "nas-si-b01"
+MQTT_PORT = 1883
+MQTT_TOPIC = "epaper/prompt"
+MQTT_TOPIC_STATUS = "epaper/status"
 
 client = InferenceClient()
 epd = epd3in6e.EPD()
@@ -48,7 +58,6 @@ def generate_and_display(prompt):
     margin = 6
     max_width = target_w - 2 * margin
 
-    # Découpe le texte en lignes qui tiennent dans la largeur
     words = prompt.split()
     lines = []
     current_line = ""
@@ -63,7 +72,6 @@ def generate_and_display(prompt):
     if current_line:
         lines.append(current_line)
 
-    # On garde max 2 lignes
     lines = lines[:2]
     if len(lines) == 2 and draw.textlength(lines[1], font=font) > max_width:
         lines[1] = lines[1][:40] + "..."
@@ -88,17 +96,67 @@ def generate_and_display(prompt):
     print("Done !")
 
 
-try:
-    while True:
-        prompt = input("\nDécris l'image à générer (ou 'q' pour quitter) : ").strip()
-        if not prompt:
-            continue
-        if prompt.lower() == 'q':
-            break
-        generate_and_display(prompt)
+def run_terminal():
+    """Mode terminal interactif."""
+    try:
+        while True:
+            prompt = input("\nDécris l'image à générer (ou 'q' pour quitter) : ").strip()
+            if not prompt:
+                continue
+            if prompt.lower() == 'q':
+                break
+            generate_and_display(prompt)
+    except KeyboardInterrupt:
+        print("\nInterruption.")
 
-except KeyboardInterrupt:
-    print("\nInterruption.")
-finally:
-    epd.sleep()
-    print("Écran en veille. À bientôt !")
+
+def run_mqtt():
+    """Mode MQTT : écoute le topic et génère à chaque message."""
+    import paho.mqtt.client as mqtt
+
+    mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+
+    def on_connect(client, userdata, flags, rc, properties):
+        print(f"Connecté au broker MQTT {MQTT_BROKER}:{MQTT_PORT}")
+        client.subscribe(MQTT_TOPIC)
+        client.publish(MQTT_TOPIC_STATUS, "ready")
+        print(f"En attente de prompts sur {MQTT_TOPIC}...")
+
+    def on_message(client, userdata, msg):
+        prompt = msg.payload.decode("utf-8").strip()
+        if not prompt:
+            return
+        print(f"\n--- Nouveau prompt reçu via MQTT ---")
+        client.publish(MQTT_TOPIC_STATUS, "generating")
+        try:
+            generate_and_display(prompt)
+            client.publish(MQTT_TOPIC_STATUS, "ready")
+        except Exception as e:
+            print(f"Erreur : {e}")
+            client.publish(MQTT_TOPIC_STATUS, f"error: {e}")
+
+    mqtt_client.on_connect = on_connect
+    mqtt_client.on_message = on_message
+    mqtt_client.connect(MQTT_BROKER, MQTT_PORT)
+
+    try:
+        mqtt_client.loop_forever()
+    except KeyboardInterrupt:
+        print("\nInterruption.")
+        mqtt_client.publish(MQTT_TOPIC_STATUS, "offline")
+        mqtt_client.disconnect()
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Générateur d'images IA pour e-Paper")
+    parser.add_argument("--mqtt", action="store_true", help="Mode MQTT (écoute epaper/prompt)")
+    args = parser.parse_args()
+
+    try:
+        if args.mqtt:
+            run_mqtt()
+        else:
+            run_terminal()
+    finally:
+        epd.sleep()
+        print("Écran en veille. À bientôt !")
