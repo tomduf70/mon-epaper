@@ -91,6 +91,37 @@ finally:
 - `examples/hello_world.py` — Hello World avec démo couleurs
 - `examples/photo.py` — Affiche une photo depuis URL ou fichier local (resize + dithering auto)
 - `examples/clean.py` — Nettoyage / mise à blanc de l'écran
+- `scripts/ai_image.py` — Générateur d'images IA, modes terminal et MQTT
+
+## ai_image.py — providers IA
+
+```bash
+# Pollinations.ai (défaut, gratuit, sans token, modèle FLUX)
+sudo -E /home/pi/.local/bin/uv run scripts/ai_image.py
+
+# HuggingFace (token HF_TOKEN requis dans .env)
+sudo -E /home/pi/.local/bin/uv run scripts/ai_image.py --provider huggingface
+
+# Mode MQTT (service)
+sudo -E /home/pi/.local/bin/uv run scripts/ai_image.py --mqtt
+```
+
+Provider par défaut : `pollinations`. Le quota gratuit HuggingFace (~1000 req/mois) est limité.
+
+## Logs du service systemd
+
+```bash
+sudo journalctl -u epaper-ai.service -f        # temps réel
+sudo journalctl -u epaper-ai.service -n 50     # 50 dernières lignes
+```
+
+## Test en mode dev
+
+```bash
+sudo systemctl stop epaper-ai.service
+set -a && source .env && set +a
+sudo -E /home/pi/.local/bin/uv run scripts/ai_image.py
+```
 
 ## Contexte projet
 - Usage pédagogique : labo de SI (Sciences de l'Ingénieur) avec des élèves

@@ -4,9 +4,14 @@
 Deux modes :
   python3 ai_image.py          → mode terminal interactif
   python3 ai_image.py --mqtt   → écoute le topic MQTT epaper/prompt
+
+Providers disponibles :
+  --provider pollinations  → Pollinations.ai (gratuit, sans token, défaut)
+  --provider huggingface   → HuggingFace Inference API (token HF_TOKEN requis)
 """
-import sys, os, argparse
+import sys, os, argparse, io
 from datetime import datetime
+from urllib.parse import quote
 
 libdir = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), 'lib')
 if os.path.exists(libdir):
@@ -17,7 +22,7 @@ savedir = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__
 os.makedirs(savedir, exist_ok=True)
 
 import logging
-from huggingface_hub import InferenceClient
+import requests
 from waveshare_epd import epd3in6e
 from PIL import Image, ImageDraw, ImageFont
 
@@ -28,19 +33,42 @@ MQTT_PORT = 1883
 MQTT_TOPIC = "palissy/epaper/prompt"
 MQTT_TOPIC_STATUS = "palissy/epaper/status"
 MQTT_TOPIC_SHUTDOWN = "palissy/epaper/shutdown"
+MQTT_TOPIC_CLEAN = "palissy/epaper/clean"
 
-client = InferenceClient()
+PROVIDER = "pollinations"  # valeur par défaut, remplacée par l'argument CLI
+
 epd = epd3in6e.EPD()
 font = ImageFont.truetype(os.path.join(picdir, 'Font.ttc'), 16)
 
 
-def generate_and_display(prompt):
-    """Génère une image, l'affiche sur l'écran et la sauvegarde."""
-    print(f"Génération en cours pour : « {prompt} »...")
-    img = client.text_to_image(
+def fetch_image_pollinations(prompt):
+    """Génère une image via Pollinations.ai (gratuit, sans token)."""
+    url = f"https://image.pollinations.ai/prompt/{quote(prompt)}"
+    params = {"width": 1024, "height": 1024, "model": "flux", "nologo": "true"}
+    print(f"Appel Pollinations.ai...")
+    response = requests.get(url, params=params, timeout=120)
+    response.raise_for_status()
+    return Image.open(io.BytesIO(response.content)).convert("RGB")
+
+
+def fetch_image_huggingface(prompt):
+    """Génère une image via HuggingFace Inference API (token requis)."""
+    from huggingface_hub import InferenceClient
+    hf_client = InferenceClient()
+    print(f"Appel HuggingFace Inference API...")
+    return hf_client.text_to_image(
         prompt,
         model="stabilityai/stable-diffusion-xl-base-1.0",
     )
+
+
+def generate_and_display(prompt):
+    """Génère une image, l'affiche sur l'écran et la sauvegarde."""
+    print(f"Génération en cours pour : « {prompt} » (provider: {PROVIDER})...")
+    if PROVIDER == "huggingface":
+        img = fetch_image_huggingface(prompt)
+    else:
+        img = fetch_image_pollinations(prompt)
     print(f"Image générée : {img.size[0]}x{img.size[1]}")
 
     # Resize + crop centré vers 400x600
@@ -121,6 +149,7 @@ def run_mqtt():
         print(f"Connecté au broker MQTT")
         client.subscribe(MQTT_TOPIC)
         client.subscribe(MQTT_TOPIC_SHUTDOWN)
+        client.subscribe(MQTT_TOPIC_CLEAN)
         client.publish(MQTT_TOPIC_STATUS, "ready")
         print(f"En attente de prompts sur {MQTT_TOPIC}...")
 
@@ -131,6 +160,19 @@ def run_mqtt():
             client.disconnect()
             epd.sleep()
             os.system("sudo shutdown -h now")
+            return
+
+        if msg.topic == MQTT_TOPIC_CLEAN:
+            print("\n--- Nettoyage demandé via MQTT ---")
+            client.publish(MQTT_TOPIC_STATUS, "cleaning")
+            try:
+                epd.init()
+                epd.Clear()
+                print("Écran nettoyé.")
+                client.publish(MQTT_TOPIC_STATUS, "ready")
+            except Exception as e:
+                print(f"Erreur nettoyage : {e}")
+                client.publish(MQTT_TOPIC_STATUS, f"error: {e}")
             return
 
         prompt = msg.payload.decode("utf-8").strip()
@@ -166,7 +208,12 @@ def run_mqtt():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Générateur d'images IA pour e-Paper")
     parser.add_argument("--mqtt", action="store_true", help="Mode MQTT (écoute epaper/prompt)")
+    parser.add_argument("--provider", choices=["pollinations", "huggingface"],
+                        default="pollinations",
+                        help="Provider IA : pollinations (défaut, gratuit) ou huggingface (token requis)")
     args = parser.parse_args()
+
+    PROVIDER = args.provider
 
     try:
         if args.mqtt:
