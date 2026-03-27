@@ -9,7 +9,7 @@ Providers disponibles :
   --provider pollinations  → Pollinations.ai (gratuit, sans token, défaut)
   --provider huggingface   → HuggingFace Inference API (token HF_TOKEN requis)
 """
-import sys, os, argparse, io
+import sys, os, argparse, io, random
 from datetime import datetime
 from urllib.parse import quote
 
@@ -34,6 +34,7 @@ MQTT_TOPIC = "palissy/epaper/prompt"
 MQTT_TOPIC_STATUS = "palissy/epaper/status"
 MQTT_TOPIC_SHUTDOWN = "palissy/epaper/shutdown"
 MQTT_TOPIC_CLEAN = "palissy/epaper/clean"
+MQTT_TOPIC_RANDOM = "palissy/epaper/random"
 
 PROVIDER = "pollinations"  # valeur par défaut, remplacée par l'argument CLI
 
@@ -70,6 +71,31 @@ def fetch_image_huggingface(prompt):
         prompt,
         model="stabilityai/stable-diffusion-xl-base-1.0",
     )
+
+
+def display_random():
+    """Affiche une image aléatoire depuis le dossier generated/."""
+    images = [f for f in os.listdir(savedir) if f.lower().endswith('.png')]
+    if not images:
+        print("Aucune image dans le dossier generated/.")
+        return
+    filename = random.choice(images)
+    path = os.path.join(savedir, filename)
+    print(f"Image aléatoire : {filename}")
+    img = Image.open(path).convert("RGB")
+
+    target_w, target_h = epd.width, epd.height
+    ratio = max(target_w / img.size[0], target_h / img.size[1])
+    new_size = (int(img.size[0] * ratio), int(img.size[1] * ratio))
+    img = img.resize(new_size, Image.LANCZOS)
+    left = (img.size[0] - target_w) // 2
+    top = (img.size[1] - target_h) // 2
+    img = img.crop((left, top, left + target_w, top + target_h))
+
+    epd.init()
+    print("Envoi vers l'écran (~15s)...")
+    epd.display(epd.getbuffer(img))
+    print("Done !")
 
 
 def generate_and_display(prompt):
@@ -160,6 +186,7 @@ def run_mqtt():
         client.subscribe(MQTT_TOPIC)
         client.subscribe(MQTT_TOPIC_SHUTDOWN)
         client.subscribe(MQTT_TOPIC_CLEAN)
+        client.subscribe(MQTT_TOPIC_RANDOM)
         client.publish(MQTT_TOPIC_STATUS, "ready")
         print(f"En attente de prompts sur {MQTT_TOPIC}...")
 
@@ -170,6 +197,17 @@ def run_mqtt():
             client.disconnect()
             epd.sleep()
             os.system("sudo shutdown -h now")
+            return
+
+        if msg.topic == MQTT_TOPIC_RANDOM:
+            print("\n--- Image aléatoire demandée via MQTT ---")
+            client.publish(MQTT_TOPIC_STATUS, "displaying")
+            try:
+                display_random()
+                client.publish(MQTT_TOPIC_STATUS, "ready")
+            except Exception as e:
+                print(f"Erreur : {e}")
+                client.publish(MQTT_TOPIC_STATUS, f"error: {e}")
             return
 
         if msg.topic == MQTT_TOPIC_CLEAN:

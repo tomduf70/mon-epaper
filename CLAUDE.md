@@ -107,6 +107,17 @@ sudo -E /home/pi/.local/bin/uv run scripts/ai_image.py --mqtt
 ```
 
 Provider par défaut : `pollinations`. Le quota gratuit HuggingFace (~1000 req/mois) est limité.
+Token optionnel `POLLINATIONS_TOKEN` dans `.env` pour un accès prioritaire Pollinations.
+
+## Topics MQTT (mode --mqtt)
+
+| Topic | Direction | Rôle |
+|---|---|---|
+| `palissy/epaper/prompt` | → Pi | Génère + affiche une image IA |
+| `palissy/epaper/status` | Pi → | Statut : `ready`, `generating`, `displaying`, `cleaning`, `offline`… |
+| `palissy/epaper/shutdown` | → Pi | Éteint le Raspberry Pi |
+| `palissy/epaper/clean` | → Pi | Nettoie l'écran (blanc) |
+| `palissy/epaper/random` | → Pi | Affiche une image aléatoire depuis `generated/` |
 
 ## Logs du service systemd
 
