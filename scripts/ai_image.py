@@ -42,11 +42,21 @@ font = ImageFont.truetype(os.path.join(picdir, 'Font.ttc'), 16)
 
 
 def fetch_image_pollinations(prompt):
-    """Génère une image via Pollinations.ai (gratuit, sans token)."""
-    url = f"https://image.pollinations.ai/prompt/{quote(prompt)}"
+    """Génère une image via Pollinations.ai."""
+    # gen.pollinations.ai est le nouvel endpoint (image.pollinations.ai redirige là mais
+    # requests perd les headers Referer/Origin sur les redirects cross-domaine)
+    url = f"https://gen.pollinations.ai/image/{quote(prompt)}"
     params = {"width": 1024, "height": 1024, "model": "flux", "nologo": "true"}
+    token = os.environ.get("POLLINATIONS_TOKEN")
+    if token:
+        params["key"] = token
+    headers = {
+        "Referer": "https://pollinations.ai",
+        "Origin": "https://pollinations.ai",
+        "User-Agent": "Mozilla/5.0 (X11; Linux aarch64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36",
+    }
     print(f"Appel Pollinations.ai...")
-    response = requests.get(url, params=params, timeout=120)
+    response = requests.get(url, params=params, headers=headers, timeout=120)
     response.raise_for_status()
     return Image.open(io.BytesIO(response.content)).convert("RGB")
 
